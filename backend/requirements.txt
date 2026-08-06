@@ -1,0 +1,10 @@
+# --- Module 1: Core API framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# NOTE: Additional dependencies (SQLAlchemy, Alembic, LangGraph, LangChain,
+# FAISS, Gmail API, etc.) are added incrementally in their respective modules
+# so this file always reflects exactly what the current codebase needs.

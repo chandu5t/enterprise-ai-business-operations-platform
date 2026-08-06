@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Env files
+.env
+.env.local
+
+# Node / Next.js (added in Module 12)
+node_modules/
+.next/
+out/
+
+# FAISS index files (added in Module 7)
+*.faiss
+*.pkl
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
