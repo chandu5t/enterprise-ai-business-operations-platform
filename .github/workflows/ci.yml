@@ -3,11 +3,17 @@ name: Backend CI
 # Trigger on every push and pull request targeting main.
 # Pull requests from forks still run this (with read-only GITHUB_TOKEN
 # permissions below), so a broken PR is caught before merge.
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
+  workflow_dispatch:    
 
 # Least-privilege by default: this pipeline only reads the repo and
 # builds an image locally — it never needs to push, write, or deploy.
