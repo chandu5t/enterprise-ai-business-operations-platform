@@ -348,4 +348,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 uvicorn app.main:app --reload
 
-If Activate.ps1 is blocked: run PowerShell as Administrator once, execute Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser, then retry activation in a normal terminal.
+If Activate.ps1 is blocked: run PowerShell as Administrator once, execute Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser, then retry activation in a normal terminal.> 
+
+Module 1 completed successfully.
+
