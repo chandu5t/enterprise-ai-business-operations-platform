@@ -1,0 +1,84 @@
+name: Backend CI
+
+# Trigger on every push and pull request targeting main.
+# Pull requests from forks still run this (with read-only GITHUB_TOKEN
+# permissions below), so a broken PR is caught before merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least-privilege by default: this pipeline only reads the repo and
+# builds an image locally — it never needs to push, write, or deploy.
+# Individual future jobs (e.g. a deploy job) request broader permissions
+# themselves rather than widening this default.
+permissions:
+  contents: read
+
+# Cancel a stale run automatically if a new commit lands on the same
+# branch/PR before the previous run finished — saves CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Pull the repo's code onto the runner.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install Python 3.12, with pip's download cache keyed off the
+      #    requirements files so dependency installs are fast on repeat runs.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      # 3. Install production + test dependencies.
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # 4. Fail fast: confirm the application package actually imports
+      #    before spending time on tests or a Docker build. This catches
+      #    syntax errors, broken imports, and missing dependencies early.
+      - name: Verify application imports successfully
+        working-directory: backend
+        run: python -c "from app.main import app; print('Import OK:', app.title)"
+
+      # 5. Run the test suite. New test files under backend/tests/ are
+      #    picked up automatically — no workflow changes needed as the
+      #    suite grows in later modules.
+      - name: Run tests
+        working-directory: backend
+        run: pytest
+
+      # 6. Build the production Docker image to verify the Dockerfile
+      #    itself stays valid as dependencies and code change. The image
+      #    is tagged with the commit SHA but not pushed anywhere in
+      #    Module 1 — pushing to a registry is a later-module concern.
+      - name: Build backend Docker image
+        working-directory: backend
+        run: docker build -t enterprise-ai-platform-backend:${{ github.sha }} .
+
+  # --- Extension points for later modules (kept as separate jobs, not
+  # bolted onto backend-ci above, so each concern stays independently
+  # fast, cacheable, and easy to make required/optional in branch
+  # protection rules) ---
+  #
+  #   lint:            ruff / flake8, runs in parallel with backend-ci
+  #   type-check:       mypy, runs in parallel with backend-ci
+  #   coverage:         pytest --cov with a minimum threshold gate
+  #   deploy:            needs: [backend-ci], gated to push-to-main only,
+  #                      pushes the image and triggers a Railway deploy
