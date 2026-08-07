@@ -1,12 +1,10 @@
 """
 Tests for the system health-check endpoint.
 
-This is the first real test in the suite — it verifies the FastAPI app
-boots and its liveness endpoint responds correctly. This is deliberately
-not a placeholder: it's the same behavior the Dockerfile's HEALTHCHECK
-and the CI pipeline's future deploy checks will depend on, so it earns
-its place in the suite from day one. Every subsequent test file placed
-in this directory is auto-discovered by pytest without any CI changes.
+/health now checks real database connectivity (Module 2), so this test
+requires a reachable Postgres database — the same one the app itself
+would use. It exercises the exact behavior Docker's HEALTHCHECK and any
+future deploy/readiness gate depend on.
 """
 
 from fastapi.testclient import TestClient
@@ -16,13 +14,14 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_health_check_returns_ok():
+def test_health_check_returns_ok_when_database_reachable():
     response = client.get("/health")
 
     assert response.status_code == 200
 
     body = response.json()
     assert body["status"] == "ok"
+    assert body["database"] == "connected"
     assert "service" in body
     assert "environment" in body
 

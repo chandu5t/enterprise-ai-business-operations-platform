@@ -9,10 +9,14 @@ lives in app/services and is invoked by routers under app/api.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
+from app.database.session import get_db
 
 settings = get_settings()
 
@@ -47,10 +51,29 @@ app.add_middleware(
 
 
 @app.get("/health", tags=["System"])
-async def health_check() -> dict:
-    """Liveness/readiness probe used by Docker, Railway, and local dev checks."""
-    return {
+async def health_check(db: Session = Depends(get_db)) -> JSONResponse:
+    """
+    Readiness probe used by Docker, Railway, and local dev checks.
+
+    Beyond confirming the process is alive, this actually queries the
+    database — a process that's up but can't reach Postgres is not
+    actually ready to serve traffic, and callers (load balancers,
+    orchestrators, Docker's HEALTHCHECK) need to know that via a
+    non-2xx status, not a misleadingly cheerful 200.
+    """
+    payload = {
         "status": "ok",
         "service": settings.APP_NAME,
         "environment": settings.APP_ENV,
+        "database": "connected",
     }
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 — any DB failure means "not ready"
+        logger.error("Health check failed: database unreachable — %s", exc)
+        payload["status"] = "degraded"
+        payload["database"] = "disconnected"
+        return JSONResponse(status_code=503, content=payload)
+
+    return JSONResponse(status_code=200, content=payload)

@@ -17,9 +17,16 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY . .
 
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
+# The entrypoint runs `alembic upgrade head` before handing off to CMD,
+# so the container always starts with an up-to-date schema — this is
+# what makes `docker compose up` work on a fresh database with zero
+# manual migration steps.
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
