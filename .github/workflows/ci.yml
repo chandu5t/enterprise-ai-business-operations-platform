@@ -3,17 +3,11 @@ name: Backend CI
 # Trigger on every push and pull request targeting main.
 # Pull requests from forks still run this (with read-only GITHUB_TOKEN
 # permissions below), so a broken PR is caught before merge.
-
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
-  workflow_dispatch:    
+    branches: [main]
 
 # Least-privilege by default: this pipeline only reads the repo and
 # builds an image locally — it never needs to push, write, or deploy.
@@ -32,6 +26,27 @@ jobs:
   backend-ci:
     name: Backend — Build & Test
     runs-on: ubuntu-latest
+
+    # A real Postgres instance, provisioned for the lifetime of this job.
+    # GitHub Actions maps its container port to localhost on the runner,
+    # so the app/tests below connect to it exactly like local dev does.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: enterprise_ai_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_ai_platform
 
     steps:
       # 1. Pull the repo's code onto the runner.
@@ -63,17 +78,25 @@ jobs:
         working-directory: backend
         run: python -c "from app.main import app; print('Import OK:', app.title)"
 
-      # 5. Run the test suite. New test files under backend/tests/ are
+      # 5. Apply Alembic migrations against the real Postgres service above.
+      #    This verifies the migration files themselves are valid — a
+      #    separate concern from the ORM-level schema pytest's fixtures
+      #    create, and the same command a production deploy will run.
+      - name: Apply database migrations
+        working-directory: backend
+        run: alembic upgrade head
+
+      # 6. Run the test suite. New test files under backend/tests/ are
       #    picked up automatically — no workflow changes needed as the
       #    suite grows in later modules.
       - name: Run tests
         working-directory: backend
         run: pytest
 
-      # 6. Build the production Docker image to verify the Dockerfile
+      # 7. Build the production Docker image to verify the Dockerfile
       #    itself stays valid as dependencies and code change. The image
-      #    is tagged with the commit SHA but not pushed anywhere in
-      #    Module 1 — pushing to a registry is a later-module concern.
+      #    is tagged with the commit SHA but not pushed anywhere yet —
+      #    pushing to a registry is a later-module concern.
       - name: Build backend Docker image
         working-directory: backend
         run: docker build -t enterprise-ai-platform-backend:${{ github.sha }} .
