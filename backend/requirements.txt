@@ -10,6 +10,12 @@ sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
 
+# --- Module 3: Authentication ---
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.19
+
 # NOTE: Additional dependencies (LangGraph, LangChain, FAISS, Gmail API,
 # etc.) are added incrementally in their respective modules so this file
 # always reflects exactly what the current codebase needs.
