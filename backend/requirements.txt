@@ -5,6 +5,11 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-dotenv==1.0.1
 
-# NOTE: Additional dependencies (SQLAlchemy, Alembic, LangGraph, LangChain,
-# FAISS, Gmail API, etc.) are added incrementally in their respective modules
-# so this file always reflects exactly what the current codebase needs.
+# --- Module 2: Database layer ---
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+
+# NOTE: Additional dependencies (LangGraph, LangChain, FAISS, Gmail API,
+# etc.) are added incrementally in their respective modules so this file
+# always reflects exactly what the current codebase needs.
