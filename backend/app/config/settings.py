@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(
         default="postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_ai_platform"
     )
+    # A SEPARATE database, used only by the test suite (see tests/conftest.py).
+    # Tests create and drop every table each session — pointing this at the
+    # same database as DATABASE_URL would silently wipe local dev / CI
+    # runtime data every time `pytest` runs. Defaults to a sibling DB name
+    # so `docker compose up` + `pytest` never collide by accident.
+    TEST_DATABASE_URL: str = Field(
+        default="postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_ai_platform_test"
+    )
 
     # --- Auth (wired in Module 3) ---
     JWT_SECRET: str = Field(default="change-me-in-env-file")

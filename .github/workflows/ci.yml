@@ -47,6 +47,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_ai_platform
+      TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_ai_platform_test
 
     steps:
       # 1. Pull the repo's code onto the runner.
@@ -78,7 +79,16 @@ jobs:
         working-directory: backend
         run: python -c "from app.main import app; print('Import OK:', app.title)"
 
-      # 5. Apply Alembic migrations against the real Postgres service above.
+      # 5. Create the dedicated test database. The Postgres service above
+      #    only provisions `enterprise_ai_platform` (its POSTGRES_DB) —
+      #    the test suite needs its own separate database (see
+      #    TEST_DATABASE_URL) so it never touches the one migrations run
+      #    against in the next step.
+      - name: Create test database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE enterprise_ai_platform_test;"
+
+      # 6. Apply Alembic migrations against the real Postgres service above.
       #    This verifies the migration files themselves are valid — a
       #    separate concern from the ORM-level schema pytest's fixtures
       #    create, and the same command a production deploy will run.
@@ -86,14 +96,14 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
-      # 6. Run the test suite. New test files under backend/tests/ are
+      # 7. Run the test suite. New test files under backend/tests/ are
       #    picked up automatically — no workflow changes needed as the
       #    suite grows in later modules.
       - name: Run tests
         working-directory: backend
         run: pytest
 
-      # 7. Build the production Docker image to verify the Dockerfile
+      # 8. Build the production Docker image to verify the Dockerfile
       #    itself stays valid as dependencies and code change. The image
       #    is tagged with the commit SHA but not pushed anywhere yet —
       #    pushing to a registry is a later-module concern.

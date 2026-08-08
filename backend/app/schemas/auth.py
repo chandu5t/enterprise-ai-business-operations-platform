@@ -19,6 +19,12 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class MessageResponse(BaseModel):
+    """Generic message-only response body, e.g. for POST /auth/logout."""
+
+    message: str
+
+
 class TokenPayload(BaseModel):
     """Shape of a decoded JWT's claims, used internally by the
     get_current_user dependency (Step 4) to validate structure before

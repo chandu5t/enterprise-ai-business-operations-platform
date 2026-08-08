@@ -27,9 +27,15 @@ from app.models import Document, Organization, User, Workflow  # noqa: F401
 
 @pytest.fixture(scope="session")
 def db_engine():
-    """Create all tables once for the test session, drop them at the end."""
+    """Create all tables once for the test session, drop them at the end.
+
+    Uses settings.TEST_DATABASE_URL — a database dedicated to the test
+    suite, separate from DATABASE_URL. This fixture drops every table
+    at teardown; running it against the same database local dev or a
+    running server depends on would wipe that data out from under it.
+    """
     settings = get_settings()
-    engine = create_engine(settings.DATABASE_URL)
+    engine = create_engine(settings.TEST_DATABASE_URL)
 
     Base.metadata.create_all(bind=engine)
     yield engine
