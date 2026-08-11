@@ -13,10 +13,10 @@ email — end to end.
 |---|---|
 | 1. Repo scaffold + Docker + FastAPI skeleton | ✅ Done |
 | 2. Database layer (SQLAlchemy + Alembic) | ✅ Done |
-| 3. Authentication (JWT) | ⬜ Next |
-| 4. BusinessState & schemas | ⬜ |
-| 5. LangGraph skeleton | ⬜ |
-| 6. Research Agent | ⬜ |
+| 3. Authentication (JWT) | ✅ Done |
+| 4. BusinessState & schemas | ✅ Done |
+| 5. LangGraph skeleton | ✅ Done |
+| 6. Research Agent | ⬜ Next |
 | 7. RAG pipeline + Knowledge Agent | ⬜ |
 | 8. Personalization Agent | ⬜ |
 | 9. Human Approval | ⬜ |
@@ -96,6 +96,24 @@ To create a new migration after changing a model:
 ```powershell
 alembic revision --autogenerate -m "describe your change"
 alembic upgrade head
+```
+
+### Running tests (Module 3+)
+
+Tests use a **separate database** (`TEST_DATABASE_URL`) from the one the
+app itself runs against — the suite creates and drops every table each
+run, so pointing it at your dev database would wipe it. Create the test
+database once:
+
+```powershell
+docker exec -it eabop-postgres psql -U postgres -c "CREATE DATABASE enterprise_ai_platform_test;"
+```
+
+*(No Docker? Use your local `psql` the same way, or any Postgres client.)*
+
+Then run the suite:
+```powershell
+pytest -v
 ```
 
 ## Repository Structure

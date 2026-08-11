@@ -17,6 +17,10 @@ bcrypt==4.0.1
 python-multipart==0.0.19
 email-validator==2.2.0
 
-# NOTE: Additional dependencies (LangGraph, LangChain, FAISS, Gmail API,
+# --- Module 5: LangGraph skeleton ---
+langgraph==1.2.10
+langchain-core==1.5.3
+
+# NOTE: Additional dependencies (LangChain integrations, FAISS, Gmail API,
 # etc.) are added incrementally in their respective modules so this file
 # always reflects exactly what the current codebase needs.
