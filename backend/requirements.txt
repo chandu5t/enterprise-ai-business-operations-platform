@@ -21,6 +21,12 @@ email-validator==2.2.0
 langgraph==1.2.10
 langchain-core==1.5.3
 
+# --- Module 6: Research Agent ---
+
+tavily-python==0.7.27
+ddgs==9.14.4
+httpx==0.28.1
+
 # NOTE: Additional dependencies (LangChain integrations, FAISS, Gmail API,
 # etc.) are added incrementally in their respective modules so this file
 # always reflects exactly what the current codebase needs.

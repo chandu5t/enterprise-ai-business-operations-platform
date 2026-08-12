@@ -1,14 +1,17 @@
 """
 LangGraph StateGraph skeleton.
 
-Builds the graph every future agent (Modules 6-10) will be added to as
-a node. Module 5's graph is intentionally minimal: START -> Supervisor
--> END. Its purpose is to prove the graph/node/checkpointing contract
-works end-to-end with our actual BusinessState (Module 4) — not to
-route to agents that don't exist yet.
+Builds the graph every future agent (Modules 7-10) will be added to as
+a node. As of Module 6: START -> Supervisor -> Research -> END. The
+pipeline is deliberately linear here, matching the TDD's own linear
+workflow diagram (Supervisor -> Research -> Knowledge -> ... ->
+Completed) — conditional edges aren't needed until Module 9 introduces
+an approve/reject branch. Retry/fallback within the Research stage
+(Tavily -> retry -> DDGS) is the Research Agent's own internal logic,
+not a graph-level concern.
 
 Verified directly (not assumed) against langgraph==1.2.10 /
-langchain-core==1.5.3 before this file was written:
+langchain-core==1.5.3 before this file was first written (Module 5):
   - StateGraph(BusinessState) — a Pydantic BaseModel — constructs correctly
   - a node function typed (state: BusinessState) -> BusinessState works
   - graph.compile()/.invoke() succeed
@@ -21,6 +24,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from app.agents.research import research_node
 from app.agents.supervisor import supervisor_node
 from app.models.workflow import WorkflowStatus
 from app.schemas.business_state import (
@@ -67,8 +71,10 @@ def build_graph() -> CompiledStateGraph:
     """
     builder = StateGraph(BusinessState)
     builder.add_node("supervisor", supervisor_node)
+    builder.add_node("research", research_node)
     builder.add_edge(START, "supervisor")
-    builder.add_edge("supervisor", END)
+    builder.add_edge("supervisor", "research")
+    builder.add_edge("research", END)
 
     checkpointer = MemorySaver(
         serde=JsonPlusSerializer(allowed_msgpack_modules=_ALLOWED_MSGPACK_MODULES)

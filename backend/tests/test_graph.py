@@ -14,9 +14,50 @@ purely in-memory.
 
 import uuid
 
+import pytest
+
 from app.models.workflow import WorkflowStatus
 from app.schemas.business_state import BusinessState, SessionInfo, WorkflowInput
 from app.workflows.graph import build_graph
+
+_MOCK_TAVILY_RESPONSE = {
+    "answer": "Acme Corp is a leading widget manufacturer.",
+    "results": [
+        {
+            "title": "Acme Corp raises Series B",
+            "url": "https://acme.example.com",
+            "content": "Acme Corp announced today...",
+        },
+    ],
+}
+
+
+@pytest.fixture(autouse=True)
+def _mock_research_providers(monkeypatch):
+    """
+    Every test in this file exercises the full compiled graph, which
+    now includes the real research node (Module 6). Without mocking,
+    graph.invoke() would make a real Tavily/DDGS network call on every
+    single test here — exactly what the approved Module 6 contract
+    prohibits. Autouse so no test in this file can forget it; this
+    file cares about graph wiring/checkpointing, not research provider
+    behavior (that's tests/test_research_agent.py's job).
+    """
+    import app.agents.research as research_module
+
+    monkeypatch.setattr(
+        research_module.get_settings(), "TAVILY_API_KEY", "tvly-fake-key-for-tests"
+    )
+    monkeypatch.setattr(
+        research_module, "_search_tavily", lambda company_name, api_key: _MOCK_TAVILY_RESPONSE
+    )
+    monkeypatch.setattr(
+        research_module,
+        "_search_ddgs",
+        lambda company_name: (_ for _ in ()).throw(
+            AssertionError("DDGS should not be reached — Tavily mock always succeeds")
+        ),
+    )
 
 
 def _minimal_state(**overrides) -> BusinessState:
@@ -59,7 +100,7 @@ def test_build_graph_produces_independent_instances():
 # --- 2. Graph compilation ---------------------------------------------------
 
 
-def test_graph_has_supervisor_node_wired():
+def test_graph_has_supervisor_and_research_nodes_wired():
     graph = build_graph()
 
     # get_graph() exposes the underlying node/edge structure LangGraph
@@ -68,6 +109,7 @@ def test_graph_has_supervisor_node_wired():
     node_names = set(graph.get_graph().nodes.keys())
 
     assert "supervisor" in node_names
+    assert "research" in node_names
     assert "__start__" in node_names
     assert "__end__" in node_names
 
@@ -84,7 +126,7 @@ def test_invoke_with_minimal_state_succeeds():
     assert result is not None
 
 
-def test_invoke_runs_start_to_supervisor_to_end():
+def test_invoke_runs_start_to_supervisor_to_research_to_end():
     graph = build_graph()
     state = _minimal_state()
     config = _config("thread-path")
@@ -94,10 +136,12 @@ def test_invoke_runs_start_to_supervisor_to_end():
     # The state history records every step LangGraph actually executed.
     history = list(graph.get_state_history(config))
     # Most recent state first; the graph should have progressed through
-    # exactly one node (supervisor) between START and END.
+    # both nodes (supervisor, research) between START and END.
     executed_node_sets = [tuple(snapshot.next) for snapshot in history]
     # The final snapshot's `next` is empty (graph finished, at END).
     assert executed_node_sets[0] == ()
+    # Three checkpoints: after supervisor, after research, before start.
+    assert len(history) >= 3
 
 
 # --- 5. Supervisor receives and returns valid state -------------------------
@@ -121,6 +165,25 @@ def test_supervisor_actually_receives_a_business_state(monkeypatch):
 
     assert received["is_business_state"] is True
     assert received["state"].input.company_name == "Acme Corp"
+
+
+def test_supervisor_sets_researching_before_research_node_runs(monkeypatch):
+    """Explicit Supervisor -> Research routing check: by the time the
+    research node executes, status must already be RESEARCHING."""
+    received_status = {}
+
+    def spy_research(state: BusinessState) -> BusinessState:
+        received_status["status_on_entry"] = state.status
+        state.research.research_completed = True
+        return state
+
+    import app.workflows.graph as graph_module
+
+    monkeypatch.setattr(graph_module, "research_node", spy_research)
+    graph = graph_module.build_graph()
+    graph.invoke(_minimal_state(), config=_config("thread-routing"))
+
+    assert received_status["status_on_entry"] == WorkflowStatus.RESEARCHING
 
 
 # --- 6. State values survive graph execution --------------------------------
@@ -147,7 +210,9 @@ def test_state_values_survive_execution():
     assert result["session"].workflow_id == workflow_id
     assert result["input"].company_name == "Very Specific Co"
     assert result["input"].recipient_email == "specific@example.com"
-    assert result["status"] == WorkflowStatus.PENDING  # untouched, as designed
+    # Supervisor sets RESEARCHING; research succeeding (mocked) doesn't
+    # advance it further — see supervisor.py/research.py docstrings.
+    assert result["status"] == WorkflowStatus.RESEARCHING
 
 
 # --- 7. MemorySaver checkpoint creation --------------------------------------
@@ -236,5 +301,6 @@ def test_checkpoint_can_be_rehydrated_into_business_state():
     rehydrated = BusinessState.model_validate(snapshot.values)
 
     assert rehydrated.input.company_name == "Acme Corp"
-    assert rehydrated.status == WorkflowStatus.PENDING
+    assert rehydrated.status == WorkflowStatus.RESEARCHING
+    assert rehydrated.research.research_completed is True
     assert rehydrated.model_dump_json()  # still JSON-serializable

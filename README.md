@@ -16,8 +16,8 @@ email — end to end.
 | 3. Authentication (JWT) | ✅ Done |
 | 4. BusinessState & schemas | ✅ Done |
 | 5. LangGraph skeleton | ✅ Done |
-| 6. Research Agent | ⬜ Next |
-| 7. RAG pipeline + Knowledge Agent | ⬜ |
+| 6. Research Agent | ✅ Done |
+| 7. RAG pipeline + Knowledge Agent | ⬜ Next |
 | 8. Personalization Agent | ⬜ |
 | 9. Human Approval | ⬜ |
 | 10. Email Agent | ⬜ |
